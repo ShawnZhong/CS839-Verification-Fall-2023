@@ -21,7 +21,7 @@ method ExplainEvenNumbers(x:int) returns (half_x:int)
 {
   // return half_x by assigning it.
   // FIXME: fill in here (solution: 1 line)
-   half_x := 1;
+  half_x := x / 2;
   // END EDIT
 }
 
@@ -50,7 +50,9 @@ lemma EvenDefinitionsAreEquivalent(x:int)
 function fibo(n:nat) : nat
 {
   // FIXME: fill in here (solution: 3 lines)
-        0
+  if n == 0 then 0
+  else if n == 1 then 1
+  else fibo(n-1) + fibo(n-2)
   // END EDIT
 }
 
@@ -97,7 +99,6 @@ method Larger(x: int) returns (y: int)
 
 method LargerNarrowPrecondition(x: int) returns (y: int)
   // FIXME: fill in here (solution: 0 lines)
-  ensures y > x
   // END EDIT
 {
   y := x + 1;
@@ -124,12 +125,22 @@ method BinarySearch(haystack:seq<int>, needle:int) returns (index:nat)
   // can use multiple ensures clauses). Remember that haystack[i] is the ith
   // element of the haystack and |haystack| is its length.
   // FIXME: fill in here (solution: 3 lines)
-  // Add ensures clauses here
+  ensures 0 <= index <= |haystack|
+  ensures forall i:nat |     0 <= i < index      :: haystack[i] < needle
+  ensures forall i:nat | index <= i < |haystack| :: needle <= haystack[i]
   // END EDIT
 
 {
   // FIXME: fill in here (solution: 11 lines)
-   return 0;  // Replace me with an implementation.
+  if |haystack| == 0 { return 0; }
+  if |haystack| == 1 { return if needle <= haystack[0] then 0 else 1; }
+  var mid := |haystack| / 2;
+  if haystack[mid] < needle {
+    var idx := BinarySearch(haystack[mid..], needle);
+    index := mid + idx;
+  } else {
+    index := BinarySearch(haystack[..mid], needle);
+  }
   // END EDIT
 }
 

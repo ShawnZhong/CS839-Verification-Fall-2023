@@ -5,7 +5,8 @@
 ghost predicate IsPrimeSpec(candidate:nat)
 {
   // FIXME: fill in here (solution: 3 lines)
-   false // Replace me
+  if candidate <= 1 then false else
+  !exists d :: 1 < d < candidate && candidate % d == 0
   // END EDIT
 }
 
@@ -22,6 +23,9 @@ lemma ConstantObligations()
   ensures !IsPrimeSpec(9)
 {
   // FIXME: fill in here (solution: 3 lines)
+  assert 4 % 2 == 0;
+  assert 6 % 2 == 0;
+  assert 9 % 3 == 0;
   // Add assertions here to prove the composite numbers have divisors.
   // END EDIT
 }
@@ -31,6 +35,7 @@ lemma CompositeIsntPrime(p: nat)
   ensures !IsPrimeSpec(p*66)
 {
   // FIXME: fill in here (solution: 1 line)
+  assert p*66 % 66 == 0;
   // END EDIT
 }
 
@@ -51,7 +56,8 @@ function
 {
   // FIXME: fill in here (solution: 3 lines)
    if limit == 1 then false else
-   false // Replace with an appropriate definition
+   if n % limit == 0 then true else
+   HasDivisorBelow(n, limit-1)
   // END EDIT
 }
 
@@ -72,10 +78,13 @@ function IsPrime(n: nat): bool {
 lemma {:induction false} HasDivisorBelow_ok(n: nat, limit: nat)
   requires 1 <= limit
   // FIXME: fill in here (solution: 3 lines)
-   ensures true
+  ensures HasDivisorBelow(n, limit) == exists d :: 1 < d <= limit && n % d == 0
   // END EDIT
 {
   // FIXME: fill in here (solution: 5 lines)
+  if limit == 1 { return; } 
+  if n % limit == 0 { return; }
+  HasDivisorBelow_ok(n, limit-1);
   // END EDIT
 }
 
