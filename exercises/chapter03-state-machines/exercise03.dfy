@@ -17,9 +17,10 @@
 // simultaneously.
 
 // FIXME: fill in here (solution: 13 lines)
-datatype Variables = Variables() {
+datatype Variables = Variables(server: nat, clients: seq<bool>) {
   ghost predicate WellFormed() {
-    true
+    && 0 <= server <= |clients|
+    && forall i | 0 <= i < |clients| :: clients[i] ==> i == server
   }
 }
 // END EDIT
@@ -27,23 +28,43 @@ datatype Variables = Variables() {
 
 ghost predicate Init(v:Variables) {
   && v.WellFormed()
-     // FIXME: fill in here (solution: 3 lines)
-                                         && true  // Replace me
-     // END EDIT
+  // FIXME: fill in here (solution: 3 lines)
+  && v.server == |v.clients|
+  && forall i | 0 <= i < |v.clients| :: v.clients[i] == false
+  // END EDIT
 }
 // FIXME: fill in here (solution: 23 lines)
+ghost predicate Acquire(v:Variables, v':Variables, clientIndex: nat) {
+  && v.WellFormed()
+  && v'.WellFormed()
+  && |v.clients| == |v'.clients| // clients don't change
+  && v.server == |v.clients| // server used to hold lock
+  && clientIndex < |v.clients|
+  && v' == v.(server := clientIndex, clients := v.clients[clientIndex := true])
+}
+
+ghost predicate Release(v:Variables, v':Variables, clientIndex: nat) {
+  && v.WellFormed()
+  && v'.WellFormed()
+  && |v.clients| == |v'.clients| // clients don't change
+  && v.server == clientIndex // client used to hold lock
+  && clientIndex < |v.clients|
+  && v' == v.(server := |v.clients|, clients := v.clients[clientIndex := false])
+}
 // END EDIT
 // Jay-Normal-Form: pack all the nondeterminism into a single object
 // that gets there-exist-ed once.
 datatype Step =
     // FIXME: fill in here (solution: 2 lines)
-   | SomeStep(somearg: int)   // Replace me
+    | AcquireStep(clientIndex: nat)
+    | ReleaseStep(clientIndex: nat)
     // END EDIT
 
 ghost predicate NextStep(v:Variables, v':Variables, step: Step) {
   match step
   // FIXME: fill in here (solution: 2 lines)
-   case SomeStep(somearg) => false  // Replace me
+   case AcquireStep(clientIndex) => Acquire(v, v', clientIndex)
+   case ReleaseStep(clientIndex) => Release(v, v', clientIndex)
   // END EDIT
 }
 
@@ -61,7 +82,7 @@ ghost predicate Next(v:Variables, v':Variables) {
 // idea in terms of the Variables you have defined.
 ghost predicate Safety(v:Variables) {
   // FIXME: fill in here (solution: 10 lines)
-        false  // Replace me
+  forall i | 0 <= i < |v.clients|, j | i < j < |v.clients| :: !(v.clients[i] && v.clients[j])
   // END EDIT
 }
 
@@ -74,7 +95,8 @@ ghost predicate ClientHoldsLock(v: Variables, clientIndex: nat)
   requires v.WellFormed()
 {
   // FIXME: fill in here (solution: 1 line)
-   false  // Replace me
+  && clientIndex < |v.clients|
+  && v.clients[clientIndex]
   // END EDIT
 }
 
@@ -92,5 +114,17 @@ lemma PseudoLiveness(clientA:nat, clientB:nat) returns (behavior:seq<Variables>)
   ensures ClientHoldsLock(behavior[|behavior|-1], clientB) // eventually clientB acquires lock
 {
   // FIXME: fill in here (solution: 9 lines)
+  var v1 := Variables(server := 3, clients := [false, false, false]);
+
+  var v2 := v1.(server := clientA, clients := v1.clients[clientA := true]);
+  assert NextStep(v1, v2, AcquireStep(clientA));
+
+  var v3 := v2.(server := 3, clients:= [false,false, false]);
+  assert NextStep(v2, v3, ReleaseStep(clientA));
+
+  var v4 := v3.(server := clientB, clients := v3.clients[clientB := true]);
+  assert NextStep(v3, v4, AcquireStep(clientB));
+
+  behavior := [v1, v2, v3, v4];
   // END EDIT
 }
