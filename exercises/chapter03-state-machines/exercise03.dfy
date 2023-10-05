@@ -19,8 +19,7 @@
 // FIXME: fill in here (solution: 13 lines)
 datatype Variables = Variables(server: nat, clients: seq<bool>) {
   ghost predicate WellFormed() {
-    && 0 <= server <= |clients|
-    && forall i | 0 <= i < |clients| :: clients[i] ==> i == server
+    0 <= server <= |clients| // server == |clients| implies server holds lock
   }
 }
 // END EDIT
