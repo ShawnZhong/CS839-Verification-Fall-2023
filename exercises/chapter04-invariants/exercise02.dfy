@@ -10,9 +10,11 @@
 include "ch03exercise03.dfy"
 
 // FIXME: fill in here (solution: 11 lines)
- ghost predicate Inv(v:Variables) {
-   true // probably not strong enough :)
- }
+ghost predicate Inv(v:Variables) {
+  // && (v.server.Unlocked? ==> forall c :: c in v.clients ==> c.Released?)
+  // && (v.server.Client? ==> 0 <= v.server.id < |v.clients| && v.clients[v.server.id].Acquired?)
+  && (forall c :: 0 <= c < |v.clients| && v.clients[c].Acquired? ==> v.server == Client(c))
+}
 // END EDIT
 
 // Here's your obligation. Probably easiest to break this up into three
@@ -23,5 +25,13 @@ lemma SafetyTheorem(v:Variables, v':Variables)
   ensures Inv(v) ==> Safety(v)
 {
   // FIXME: fill in here (solution: 10 lines)
+  if Inv(v) && Next(v, v') {
+    var step :| NextStep(v, v', step);
+    match step {
+      case AcquireStep(id) => { return; }
+      case ReleaseStep(id) => { return; }
+    }
+    return;
+  }
   // END EDIT
 }
