@@ -11,9 +11,8 @@ include "ch03exercise03.dfy"
 
 // FIXME: fill in here (solution: 11 lines)
 ghost predicate Inv(v:Variables) {
-  // && (v.server.Unlocked? ==> forall c :: c in v.clients ==> c.Released?)
-  // && (v.server.Client? ==> 0 <= v.server.id < |v.clients| && v.clients[v.server.id].Acquired?)
-  && (forall c :: 0 <= c < |v.clients| && v.clients[c].Acquired? ==> v.server == Client(c))
+  // If client i has acquired the lock, then the server should record the same info.
+  forall c :: 0 <= c < |v.clients| && v.clients[c].Acquired? ==> v.server == Client(c)
 }
 // END EDIT
 
