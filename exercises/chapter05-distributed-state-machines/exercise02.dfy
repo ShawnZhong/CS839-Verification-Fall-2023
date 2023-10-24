@@ -53,7 +53,10 @@ module Obligations {
   {
     // All hosts that reach a decision reach the same one
     // FIXME: fill in here (solution: 4 lines)
-        true // Replace me
+    (forall i |
+       && ValidParticipantId(v, i)
+       && ParticipantVars(v, i).decision != None
+       :: ParticipantVars(v, i).decision == CoordinatorVars(v).decision)
     // END EDIT
   }
 
@@ -64,7 +67,9 @@ module Obligations {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 6 lines)
-     true // Replace me
+    && (exists i | ValidParticipantId(v, i) :: ParticipantVars(v, i).c.preference == No)
+    && CoordinatorVars(v).decision != None
+    ==> CoordinatorVars(v).decision == Some(Abort)
     // END EDIT
   }
 
@@ -73,7 +78,9 @@ module Obligations {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 5 lines)
-     true // Replace me
+    && (forall i | ValidParticipantId(v, i) :: ParticipantVars(v, i).c.preference == Yes)
+    && CoordinatorVars(v).decision != None
+    ==> CoordinatorVars(v).decision == Some(Commit)
     // END EDIT
   }
 

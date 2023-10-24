@@ -49,7 +49,9 @@ module Types {
   // we're trying to avoid getting fancy with the Dafny module system.)
   datatype Message =
       // FIXME: fill in here (solution: 3 lines)
-       ReplaceMe()
+    | ReqMsg()
+    | VoteMsg(hostId: HostId, vote: Vote)
+    | CommitMsg(decision: Decision)
       // END EDIT
 
   // A MessageOps is a "binding variable" used to connect a Host's Next step
@@ -75,14 +77,15 @@ module CoordinatorHost {
 
   datatype Variables = Variables(
     c: Constants,
-    decision: Option<Decision>
+    decision: Option<Decision>,
     // FIXME: fill in here (solution: 1 line)
+    votes: seq<Option<Vote>>
     // END EDIT
   )
   {
     ghost predicate WF() {
       // FIXME: fill in here (solution: 1 line)
-      true
+      |votes| == c.participantCount
       // END EDIT
     }
 
@@ -95,8 +98,10 @@ module CoordinatorHost {
   ghost predicate Init(v: Variables)
   {
     // FIXME: fill in here (solution: 5 lines)
-        true // replace me
-    // END EDIT
+    && v.WF()
+    && v.decision == None // no decision made
+    && (forall i | 0 <= i < |v.votes| :: v.votes[i] == None) // no votes received
+       // END EDIT
   }
 
   // Protocol steps. Define an action predicate for each step of the protocol
@@ -104,12 +109,49 @@ module CoordinatorHost {
   // Hint: it's probably easiest to separate the receipt and recording of
   // incoming votes from detecting that all have arrived and making a decision.
   // FIXME: fill in here (solution: 46 lines)
+  ghost predicate SendReq(v: Variables, v': Variables, msgOps: MessageOps)
+  {
+    && Init(v)
+    && v == v' // spontaneous action
+    && msgOps == MessageOps(recv := None, send := Some(ReqMsg()))
+  }
+
+  ghost predicate RecordVote(v: Variables, v': Variables, msgOps: MessageOps)
+  {
+    match msgOps
+    case MessageOps(Some(VoteMsg(hostId, vote)), None) =>
+      && v.WF()
+      && v'.WF()
+      && hostId < |v.votes|
+      && v.decision == v'.decision == None // no decision made previously
+      && v.votes[hostId] == None // no vote received previously
+      && v' == v.(votes := v.votes[hostId := Some(vote)]) // record vote
+    case _ => false
+  }
+
+  ghost predicate MakeDecision(v: Variables, v': Variables, msgOps: MessageOps)
+  {
+    match msgOps
+    case MessageOps(None, Some(CommitMsg(decision))) =>
+      && v.WF()
+      && v'.WF()
+      && (forall i | 0 <= i < |v.votes| :: v.votes[i] != None) // all votes received
+      && v.decision == None // no decision made previously
+      && v' == v.(decision := Some(decision)) // record decision
+      && match decision {
+           case Commit => forall i | 0 <= i < |v.votes| :: v.votes[i] == Some(Yes)
+           case Abort => exists i | 0 <= i < |v.votes| :: v.votes[i] == Some(No)
+         }
+    case _ => false
+  }
   // END EDIT
 
   // JayNF
   datatype Step =
       // FIXME: fill in here (solution: 3 lines)
-       ReplaceMeWithYourJayNFSteps()
+    | SendReqStep()
+    | RecordVoteStep()
+    | MakeDecisionStep()
       // END EDIT
 
   // msgOps is a "binding variable" -- the host and the network have to agree
@@ -120,7 +162,9 @@ module CoordinatorHost {
   {
     match step
     // FIXME: fill in here (solution: 3 lines)
-     case ReplaceMeWithYourJayNFSteps => true
+    case SendReqStep() => SendReq(v, v', msgOps)
+    case RecordVoteStep() => RecordVote(v, v', msgOps)
+    case MakeDecisionStep() => MakeDecision(v, v', msgOps)
     // END EDIT
   }
 
@@ -147,7 +191,7 @@ module ParticipantHost {
   {
     ghost predicate WF() {
       // FIXME: fill in here (solution: 1 line)
-       true
+      c.preference == No ==> decision == Some(Abort) // optimization //TODO:??
       // END EDIT
     }
 
@@ -160,26 +204,50 @@ module ParticipantHost {
   ghost predicate Init(v: Variables)
   {
     // FIXME: fill in here (solution: 1 line)
-     true // replace me
+    v.decision == None // no decision made
     // END EDIT
   }
 
   // Protocol steps. Define an action predicate for each step of the protocol
   // that participant can take.
   // FIXME: fill in here (solution: 20 lines)
+  ghost predicate SendVote(v: Variables, v': Variables, msgOps: MessageOps)
+  {
+    && v.WF()
+    && v'.WF()
+    && v' == v // no state change
+    && v'.decision == v.decision == None // no decision made yet
+    && msgOps == MessageOps(
+                   recv := Some(ReqMsg()),
+                   send := Some(VoteMsg(v.c.hostId, v.c.preference))
+                 )
+  }
+
+  ghost predicate ReceiveCommit(v: Variables, v': Variables, msgOps: MessageOps)
+  {
+    match msgOps
+    case MessageOps(Some(CommitMsg(decision)), None) =>
+      && v.WF()
+      && v'.WF()
+      && v.decision == None // no decision made previously
+      && v' == v.(decision := Some(decision)) // record decision
+    case _ => false
+  }
   // END EDIT
 
   // JayNF
   datatype Step =
       // FIXME: fill in here (solution: 2 lines)
-       ReplaceMeWithYourJayNFSteps()
+    | SendVoteStep()
+    | ReceiveCommitStep()
       // END EDIT
 
   ghost predicate NextStep(v: Variables, v': Variables, step: Step, msgOps: MessageOps)
   {
     match step
     // FIXME: fill in here (solution: 2 lines)
-     case ReplaceMeWithYourJayNFSteps => true
+    case SendVoteStep() => SendVote(v, v', msgOps)
+    case ReceiveCommitStep() => ReceiveCommit(v, v', msgOps)
     // END EDIT
   }
 
@@ -390,6 +458,83 @@ module DistributedSystem {
               :: GetDecisionForHost(Last(behavior).hosts[hostid]) == Some(Commit)
   {
     // FIXME: fill in here (solution: 60 lines)
+
+    // 1. Init
+    var c1 := CoordinatorHost.Variables(
+      CoordinatorHost.Constants(participantCount := 1),
+      decision := None,
+      votes :=[None]
+    );
+    var p1 := ParticipantHost.Variables(
+      ParticipantHost.Constants(hostId := 0, preference := Yes),
+      decision := None
+    );
+    var v1 := Variables(
+      hosts := [
+        Host.Variables.ParticipantVariables(p1),
+        Host.Variables.CoordinatorVariables(c1)
+      ],
+      network := Network.Variables(sentMsgs := {})
+    );
+
+    assert Init(v1);
+
+
+    // 2. Coordinator sends ReqMsg
+    var m1 := MessageOps(recv := None, send := Some(ReqMsg()));
+    var v2 := v1.(
+    network := v1.network.(sentMsgs := v1.network.sentMsgs + {m1.send.value})
+    );
+
+    assert CoordinatorHost.NextStep(c1, c1, CoordinatorHost.SendReqStep, m1);
+    assert NextStep(v1, v2, HostActionStep(1, m1));
+
+
+    // 3. Participant receives ReqMsg and sends VoteMsg
+    var m2 := MessageOps(recv := Some(ReqMsg()), send := Some(VoteMsg(0, Yes)));
+    var v3 := v2.(
+    network := v2.network.(sentMsgs := v2.network.sentMsgs + {m2.send.value})
+    );
+
+    assert ParticipantHost.NextStep(p1, p1, ParticipantHost.SendVoteStep(), m2);
+    assert NextStep(v2, v3, HostActionStep(0, m2));
+
+
+    // 4. Coordinator receives VoteMsg
+    var m3 := MessageOps(recv := Some(VoteMsg(0, Yes)), send := None);
+    var c2 := c1.(votes := c1.votes[0 := Some(Yes)]); // record vote
+    var v4 := v3.(
+    hosts := v3.hosts[1 := Host.Variables.CoordinatorVariables(c2)]
+    );
+
+    assert CoordinatorHost.NextStep(c1, c2, CoordinatorHost.RecordVoteStep(), m3);
+    assert NextStep(v3, v4, HostActionStep(1, m3));
+
+
+    // 5. Coordinator sends CommitMsg
+    var m4 := MessageOps(recv := None, send := Some(CommitMsg(Commit)));
+    var c3 := c2.(decision := Some(Commit)); // record decision
+    var v5 := v4.(
+    hosts := v4.hosts[1 := Host.Variables.CoordinatorVariables(c3)],
+    network := v4.network.(sentMsgs := v4.network.sentMsgs + {m4.send.value})
+    );
+
+    assert CoordinatorHost.NextStep(c2, c3, CoordinatorHost.MakeDecisionStep, m4);
+    assert NextStep(v4, v5, HostActionStep(1, m4));
+
+
+    // 6. Participant receives CommitMsg
+    var m5 := MessageOps(recv := Some(CommitMsg(Commit)), send := None);
+    var p2 := p1.(decision := Some(Commit)); // record decision
+    var v6 := v5.(
+    hosts := v5.hosts[0 := Host.Variables.ParticipantVariables(p2)]
+    );
+
+    assert ParticipantHost.NextStep(p1, p2, ParticipantHost.ReceiveCommitStep(), m5);
+    assert NextStep(v5, v6, HostActionStep(0, m5));
+
+
+    behavior := [v1, v2, v3, v4, v5, v6];
     // END EDIT
   }
 }
