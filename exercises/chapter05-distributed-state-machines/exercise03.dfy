@@ -99,9 +99,6 @@ module TwoPCInvariantProof {
     assert ParticipantSendVote(v);
     assert ParticipantRecordDecision(v);
     assert DecisionMsgsAgreeWithDecision(v);
-    assert SafetyAC1(v);
-    assert SafetyAC3(v);
-    assert SafetyAC4(v);
     // END EDIT
   }
 
@@ -112,47 +109,77 @@ module TwoPCInvariantProof {
   {
     //(not all of the below but much of it)
     // FIXME: fill in here (solution: 59 lines)
-    assert ParticipantSendVote(v');
-    assert CoordinatorRecordsVotes(v');
-    assert CoordinatorMakesDecision(v');
-    assert DecisionMsgsAgreeWithDecision(v');
-    assert ParticipantRecordDecision(v');
+    var s :| NextStep(v, v', s);
 
-
-    forall i : HostId |
-      && ValidParticipantId(v', i)
-      && ParticipantVars(v', i).decision != None
-      ensures ParticipantVars(v', i).decision == CoordinatorVars(v').decision
-    {
-      match ParticipantVars(v', i).decision {
-        case Some(Commit) => {
-          assert ParticipantVars(v', i).c.preference == Yes;
-          assert CoordinatorVars(v').votes[i] == Some(Yes);
-          assert CoordinatorVars(v').decision == Some(Commit);
+    if step :| CoordinatorHost.NextStep(CoordinatorVars(v), CoordinatorVars(v'), step, s.msgOps) {
+      match step {
+        case SendReqStep => {
+          forall i : nat | ValidParticipantId(v', i)
+            ensures ParticipantVars(v', i).decision == ParticipantVars(v, i).decision == None {}
+          assert CoordinatorRecordsVotes(v');
+          assert CoordinatorMakesDecision(v');
+          assert DecisionMsgsAgreeWithDecision(v');
+          assert ParticipantRecordDecision(v');
+          assert Inv(v');
         }
-        case Some(Abort) => {
-          assert CommitMsg(Abort) in v'.network.sentMsgs;
-          assert CoordinatorVars(v').decision == Some(Abort);
+        case RecordVoteStep => {
+          assert ParticipantSendVote(v');
+          assert CoordinatorRecordsVotes(v');
+          assert CoordinatorMakesDecision(v');
+          assert DecisionMsgsAgreeWithDecision(v');
+          assert ParticipantRecordDecision(v');
+          assert Inv(v');
+        }
+        case SendDecisionStep => {
+          assert ParticipantSendVote(v');
+          assert CoordinatorRecordsVotes(v');
+          assert CoordinatorMakesDecision(v');
+          assert DecisionMsgsAgreeWithDecision(v');
+          assert ParticipantRecordDecision(v');
+          assert Inv(v');
         }
       }
     }
-    assert SafetyAC1(v');
 
-    assert SafetyAC3(v');
+    var hostId := s.hostId;
+    if step :|
+      && ValidParticipantId(v, hostId)
+      && ParticipantHost.NextStep(ParticipantVars(v, hostId), ParticipantVars(v', hostId), step, s.msgOps)
+    {
+      match step {
+        case SendVoteStep => {
+          assert ParticipantVars(v', hostId).decision == ParticipantVars(v, hostId).decision == None;
+          assert ParticipantSendVote(v');
+          assert CoordinatorRecordsVotes(v');
+          assert CoordinatorMakesDecision(v');
+          assert DecisionMsgsAgreeWithDecision(v');
+          assert ParticipantRecordDecision(v');
+          assert Inv(v');
+        }
+        case ReceiveCommitStep => {
+          match ParticipantVars(v', hostId).decision {
+            case Some(Commit) => {
+              assert ParticipantVars(v', hostId).c.preference == Yes;
+              assert CoordinatorVars(v').votes[hostId] == Some(Yes);
+              assert CoordinatorVars(v').decision == Some(Commit);
+              assert ParticipantVars(v', hostId).decision == Some(Commit);
+              assert forall i : HostId | ValidParticipantId(v', i) :: CoordinatorVars(v').votes[i] == Some(Yes);
+              assert ParticipantRecordDecision(v');
+            }
+            case Some(Abort) => {
+              assert CoordinatorVars(v').decision == Some(Abort);
+              assert CommitMsg(Abort) in v'.network.sentMsgs;
+              assert ParticipantVars(v', hostId).decision == Some(Abort);
+              assert exists i : HostId | ValidParticipantId(v', i) :: CoordinatorVars(v').votes[i] == Some(No);
+              assert ParticipantRecordDecision(v');
+            }
+          }
+          assert ParticipantSendVote(v');
+          assert CoordinatorRecordsVotes(v');
+          assert CoordinatorMakesDecision(v');
+          assert DecisionMsgsAgreeWithDecision(v');
 
-    match CoordinatorVars(v').decision {
-      case Some(Commit) => {
-        assert CoordinatorVars(v').decision == Some(Commit);
-        assert SafetyAC4(v');
-      }
-      case Some(Abort) => {
-        assert CoordinatorVars(v').decision == Some(Abort);
-        assert exists i : HostId | ValidParticipantId(v', i) :: CoordinatorVars(v').votes[i] == Some(No);
-        assert SafetyAC4(v');
-      }
-      case None => {
-        assert CoordinatorVars(v').decision == None;
-        assert SafetyAC4(v');
+        }
       }
     }
     // END EDIT
