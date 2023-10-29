@@ -191,7 +191,7 @@ module ParticipantHost {
   {
     ghost predicate WF() {
       // FIXME: fill in here (solution: 1 line)
-      c.preference == No ==> decision == Some(Abort) // optimization //TODO:??
+      c.preference == No ==> decision == Some(Abort) // optimization
       // END EDIT
     }
 
