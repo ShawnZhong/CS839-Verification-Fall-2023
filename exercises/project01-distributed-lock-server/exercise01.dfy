@@ -41,15 +41,17 @@ module SafetySpec {
   ghost predicate HostHoldsLock(v:DistributedSystem.Variables, idx: int) {
     && v.WF()
        // FIXME: fill in here (solution: 4 lines)
-    && false
+    && v.ValidHostId(idx)
+    && v.hosts[idx].holdsLock
        // END EDIT
   }
 
   // No two hosts think they hold the lock simultaneously.
   ghost predicate Safety(v:DistributedSystem.Variables) {
     // FIXME: fill in here (solution: 4 lines)
-    true // Replace this placeholder with an appropriate safety condition
-    // END EDIT
+    && v.WF()
+    && (forall id1, id2 :: HostHoldsLock(v, id1) && HostHoldsLock(v, id2) ==> id1 == id2)
+       // END EDIT
   }
 }
 
@@ -68,16 +70,40 @@ module Proof {
     && v.WF()
     && message in v.network.sentMsgs
                   // FIXME: fill in here (solution: 2 lines)
-    && false // ...add something about epoch numbers
+    && v.ValidHostId(message.dest)
+    && v.hosts[message.dest].epoch < message.epoch
        // END EDIT
   }
   // FIXME: fill in here (solution: 29 lines)
+  ghost predicate InflightMessageLargeEpoch(v:Variables) {
+    forall msg | InFlight(v, msg) ::
+      forall otherMsg |
+        && otherMsg in v.network.sentMsgs
+        && otherMsg != msg
+        :: msg.epoch > otherMsg.epoch
+  }
+
+  ghost predicate LockGrantedByMsg(v:Variables) {
+    forall id | HostHoldsLock(v, id) ::
+      ||(&& id == 0
+         && v.hosts[id].epoch == 1
+         && v.network.sentMsgs == {})
+      ||(&& var msg := Host.Grant(id, v.hosts[id].epoch);
+         && msg in v.network.sentMsgs
+         && forall otherMsg |
+              && otherMsg in v.network.sentMsgs
+              && otherMsg != msg
+              :: msg.epoch > otherMsg.epoch)
+  }
+
   // END EDIT
 
   ghost predicate Inv(v:Variables) {
     // FIXME: fill in here (solution: 13 lines)
-    false // Replace this placeholder with an invariant that's inductive and supports Safety.
-    // END EDIT
+    && v.WF()
+    && InflightMessageLargeEpoch(v)
+    && LockGrantedByMsg(v)
+       // END EDIT
   }
 
   lemma InvInductive(v: Variables, v': Variables)
@@ -86,9 +112,6 @@ module Proof {
   {
     // Develop any necessary proof here.
     // FIXME: fill in here (solution: 17 lines)
-    var step :| NextStep(v, v', step);
-    var id := step.id;
-    var hstep :| Host.NextStep(v.hosts[id], v'.hosts[id], step.msgOps, hstep);
     // END EDIT
   }
 
@@ -99,6 +122,9 @@ module Proof {
   {
     // Develop any necessary proof here.
     // FIXME: fill in here (solution: 3 lines)
+    assert Init(v) ==> Inv(v);
+    assert Inv(v) && Next(v, v') ==> Inv(v');
+    assert Inv(v) ==> Safety(v);
     // END EDIT
   }
 }
