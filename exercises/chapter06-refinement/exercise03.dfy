@@ -74,14 +74,16 @@ module RefinementProof refines RefinementTheorem {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 1 line)
-    []   // Replace me
-    // END EDIT
+    seq(ParticipantCount(v), i requires 0 <= i < ParticipantCount(v) => ParticipantVars(v, i).c.preference)
+      // END EDIT
   }
 
   ghost function VariablesAbstraction(v: DistributedSystem.Variables) : AtomicCommit.Variables
   {
     // FIXME: fill in here (solution: 3 lines)
-    AtomicCommit.Variables(None, [])   // Replace me
+    var c := ParticipantCount(v);
+    var decision := seq(c, i requires 0 <= i < c => ParticipantVars(v, i).decision);
+    AtomicCommit.Variables(Preferences(v), decision)   // Replace me
     // END EDIT
   }
 
@@ -92,7 +94,7 @@ module RefinementProof refines RefinementTheorem {
     // explicitly) to avoid inadvertently referring to the shadowing definition
     // RefinementTheorem.Inv.
     // FIXME: fill in here (solution: 1 line)
-    false  // Replace me
+    TwoPCInvariantProof.Inv(v)
     // END EDIT
   }
 

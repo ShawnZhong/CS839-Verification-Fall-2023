@@ -33,8 +33,13 @@ module AtomicCommitProperties {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 4 lines)
-    false // Replace me
-    // END EDIT
+    forall i1, i2 |
+      && 0 <= i1 < |v.decisions|
+      && 0 <= i2 < |v.decisions|
+      && v.decisions[i1].Some?
+      && v.decisions[i2].Some?
+      :: v.decisions[i1] == v.decisions[i2]
+         // END EDIT
   }
 
   // AC2 can't be stated about a single state; the "code reviewer"
@@ -45,7 +50,13 @@ module AtomicCommitProperties {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 6 lines)
-    false // Replace me
+    (forall i | 0 <= i < |v.preferences| :: v.preferences[i] == Yes)
+    ==> (
+        forall i |
+          && 0 <= i < |v.decisions|
+          && v.decisions[i].Some?
+          :: v.decisions[i].value == Commit
+      )
     // END EDIT
   }
 
@@ -53,7 +64,13 @@ module AtomicCommitProperties {
     requires v.WF()
   {
     // FIXME: fill in here (solution: 4 lines)
-    false // Replace me
+    (exists i | 0 <= i < |v.preferences| :: v.preferences[i] == No)
+    ==> (
+        forall i |
+          && 0 <= i < |v.decisions|
+          && v.decisions[i].Some?
+          :: v.decisions[i].value == Abort
+      )
     // END EDIT
   }
 

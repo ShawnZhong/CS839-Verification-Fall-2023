@@ -56,8 +56,9 @@ module AtomicCommit {
   ghost predicate Init(v: Variables)
   {
     // FIXME: fill in here (solution: 2 lines)
-    true // Replace me
-    // END EDIT
+    && v.WF()
+    && (forall i | 0 <= i < |v.decisions| :: v.decisions[i].None?)
+       // END EDIT
   }
 
   // We can tell what the ultimate decision has to be just from the constants.
@@ -66,18 +67,27 @@ module AtomicCommit {
   ghost function UltimateDecision(prefs: seq<Vote>) : Decision
   {
     // FIXME: fill in here (solution: 1 line)
-    Commit // Replace me
+    if (forall i | 0 <= i < |prefs| :: prefs[i] == Yes) then Commit else Abort
     // END EDIT
   }
 
   // Define your step predicates here
   // FIXME: fill in here (solution: 9 lines)
+  ghost predicate LearnDecision(v: Variables, v': Variables, event: Event, idx: nat)
+  {
+    && event == ParticipantLearnsEvent(idx)
+    && v.WF()
+    && v'.WF()
+    && 0 <= idx < |v.decisions|
+    && v.decisions[idx].None?  // Decision is unknown before
+    && v' == v.(decisions := v.decisions[idx := Some(UltimateDecision(v.preferences))])
+  }
   // END EDIT
 
   // JayNF
   datatype Step =
       // FIXME: fill in here (solution: 1 line)
-    | ReplaceMeWithYourJayNFSteps()
+    | LearnDecisionStep(idx: nat)
       // END EDIT
 
   ghost predicate NextStep(v: Variables, v': Variables, event: Event, step: Step)
@@ -87,7 +97,7 @@ module AtomicCommit {
     && (
          match step
          // FIXME: fill in here (solution: 1 line)
-         case ReplaceMeWithYourJayNFSteps => true
+         case LearnDecisionStep(idx) => LearnDecision(v, v', event, idx)
          // END EDIT
        )
   }
@@ -117,8 +127,17 @@ module AtomicCommit {
     ensures Last(ex).decisions[1] == Some(Commit)
   {
     // FIXME: fill in here (solution: 9 lines)
-    ex := []; // Your execution here
-    evs := []; // Your events here
+    ex := [
+      Variables([Yes, Yes], [None, None]),
+      Variables([Yes, Yes], [Some(Commit), None]),
+      Variables([Yes, Yes], [Some(Commit), Some(Commit)])
+    ]; // Your execution here
+    evs := [
+      ParticipantLearnsEvent(0),
+      ParticipantLearnsEvent(1)
+    ]; // Your events here
+    assert NextStep(ex[0], ex[1], evs[0], LearnDecisionStep(0));
+    assert NextStep(ex[1], ex[2], evs[1], LearnDecisionStep(1));
     // END EDIT
   }
 
@@ -133,8 +152,18 @@ module AtomicCommit {
     ensures Last(ex).decisions[1] == Some(Abort)
   {
     // FIXME: fill in here (solution: 10 lines)
-    ex := []; // Your execution here
-    evs := []; // Your events here
+    ex := [
+      Variables([Yes, No], [None, None]),
+      Variables([Yes, No], [Some(Abort), None]),
+      Variables([Yes, No], [Some(Abort), Some(Abort)])
+    ]; // Your execution here
+    evs := [
+      ParticipantLearnsEvent(0),
+      ParticipantLearnsEvent(1)
+    ]; // Your events here
+    assert ex[0].preferences[1] == No;
+    assert NextStep(ex[0], ex[1], evs[0], LearnDecisionStep(0));
+    assert NextStep(ex[1], ex[2], evs[1], LearnDecisionStep(1));
     // END EDIT
   }
 }
