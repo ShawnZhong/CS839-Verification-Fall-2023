@@ -81,9 +81,8 @@ module RefinementProof refines RefinementTheorem {
   ghost function VariablesAbstraction(v: DistributedSystem.Variables) : AtomicCommit.Variables
   {
     // FIXME: fill in here (solution: 3 lines)
-    var c := ParticipantCount(v);
-    var decision := seq(c, i requires 0 <= i < c => ParticipantVars(v, i).decision);
-    AtomicCommit.Variables(Preferences(v), decision)   // Replace me
+    var d := seq(ParticipantCount(v), i requires 0 <= i < ParticipantCount(v) => ParticipantVars(v, i).decision);
+    AtomicCommit.Variables(Preferences(v), d)
     // END EDIT
   }
 
@@ -116,6 +115,7 @@ module RefinementProof refines RefinementTheorem {
     // Advice: appeal to the existing proof to get Inv(v')!
     assert Inv(v') by {
       // FIXME: fill in here (solution: 1 line)
+      TwoPCInvariantProof.InvInductive(v, v', event);
       // END EDIT
     }
 
@@ -126,6 +126,38 @@ module RefinementProof refines RefinementTheorem {
     // assert the right AtomicCommit.NextStep() predicate. Mostly, Dafny needs
     // those asserts because they're witnesses to the `exists` in AtomicCommit.Next().
     // FIXME: fill in here (solution: 51 lines)
+    var step :| DistributedSystem.NextStep(v, v', event, step);
+    assert step.HostActionStep?;
+    var hostId := step.hostId;
+    var msgOps := step.msgOps;
+
+    if v.hosts[hostId].ParticipantVariables? {
+      var pv, pv' := ParticipantVars(v, hostId), ParticipantVars(v', hostId);
+      var av, av' := VariablesAbstraction(v), VariablesAbstraction(v');
+      var astep := AtomicCommit.LearnDecisionStep(hostId);  // the only step that can happen
+      var pstep :| ParticipantHost.NextStep(pv, pv', pstep, msgOps, event);
+
+      match pstep
+      case VoteStep =>
+        if pv.decision.None? && pv.c.preference.No? {
+          assert av.preferences[hostId] == No;
+          assert AtomicCommit.NextStep(av, av', event, astep);
+        }
+
+      case LearnDecisionStep =>
+        if pv.decision.None? && pv'.decision == Some(Abort) {
+          var idx :| 0 <= idx < ParticipantCount(v) &&
+                     ParticipantVars(v, idx).c.preference == No;
+          assert av'.preferences[idx] == No;
+          assert AtomicCommit.UltimateDecision(av'.preferences) == Abort;
+          assert AtomicCommit.NextStep(av, av', event, astep);
+        } else if pv.decision.None? && pv'.decision == Some(Commit) {
+          assert AtomicCommit.NextStep(av, av', event, astep);
+        }
+
+    } else {
+      assert event == NoOpEvent;
+    }
     // END EDIT
   }
 }
