@@ -44,17 +44,60 @@ module Host {
   ghost predicate Init(v: Variables) {
     // hint: look at IMapHelpers for some tools to write this
     // FIXME: fill in here (solution: 2 lines)
-    && true
-    // END EDIT
+    if v.myId == 0
+    then v.m == ZeroMap()
+    else v.m == EmptyMap()
+      // END EDIT
   }
 
   datatype Step =
       // FIXME: fill in here (solution: 4 lines)
-    | ProtocolStepsHere // Replace me
+    | PutStep(key: int, value: int)
+    | GetStep(key: int, value: int)
+    | SendStep(key: int, value: int)
+    | RecvStep(key: int, value: int)
       // END EDIT
 
   // Write a predicate for each step here.
   // FIXME: fill in here (solution: 53 lines)
+
+  ghost predicate Put(v: Variables, v': Variables, msgOps: Network.MessageOps, event: Event, key: int, value: int)
+  {
+    && event == PutEvent(key, value)
+    && msgOps.recv == None
+    && msgOps.send == None
+    && key in v.m
+    && v' == v.(m := v.m[key := value])
+  }
+
+  ghost predicate Get(v: Variables, v': Variables, msgOps: Network.MessageOps, event: Event, key: int, value: int)
+  {
+    && event == GetEvent(key, value)
+    && msgOps.recv == None
+    && msgOps.send == None
+    && key in v.m
+    && value == v.m[key]
+    && v' == v
+  }
+
+  ghost predicate Send(v: Variables, v': Variables, msgOps: Network.MessageOps, event: Event, key: int, value: int)
+  {
+    && event == NoOpEvent()
+    && msgOps.recv == None
+    && msgOps.send == Some(TransferMessage(key, value))
+    && key in v.m
+    && value == v.m[key]
+    && v' == v.(m := v.m - {key})
+  }
+
+  ghost predicate Recv(v: Variables, v': Variables, msgOps: Network.MessageOps, event: Event, key: int, value: int)
+  {
+    && event == NoOpEvent()
+    && msgOps.recv == Some(TransferMessage(key, value))
+    && msgOps.send == None
+    && key !in v.m
+    && v' == v.(m := v.m[key := value])
+  }
   // END EDIT
 
   ghost predicate NextStep(v: Variables, v': Variables, msgOps: Network.MessageOps, event: Event, step: Step)
@@ -62,7 +105,10 @@ module Host {
     match step {
       // boilerplate that dispatches to each of your step's predicates
       // FIXME: fill in here (solution: 4 lines)
-      case ProtocolStepsHere => true
+      case PutStep(key, value) => Put(v, v', msgOps, event, key, value)
+      case GetStep(key, value) => Get(v, v', msgOps, event, key, value)
+      case SendStep(key, value) => Send(v, v', msgOps, event, key, value)
+      case RecvStep(key, value) => Recv(v, v', msgOps, event, key, value)
       // END EDIT
     }
   }

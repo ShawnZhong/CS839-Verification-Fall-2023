@@ -5,6 +5,6 @@
 module MessageType {
   datatype Message =
       // FIXME: fill in here (solution: 1 line)
-    | FillInHere
+    | TransferMessage(key: int, value: int)
       // END EDIT
 }
